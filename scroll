@@ -1,0 +1,57 @@
+import cv2
+import mediapipe as mp
+import pyautogui as pag
+import numpy as np
+cam=cv2.VideoCapture(0)
+green_lower= np.array([36,25,25])
+green_upper= np.array([86, 255,255])
+prev_y=0
+face_mesh=mp.solutions.face_mesh.FaceMesh(refine_landmarks=True)
+screen_w,screen_h=pag.size()
+while True:
+    _, frame= cam.read()
+    frame=cv2.flip(frame,1)
+    hsv=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
+    rgb_frame=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+    mask=cv2.inRange(hsv,green_lower,green_upper)
+    contours, heirarhy=cv2.findContours(mask, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        area= cv2.contourArea(c)
+        if area>1200:
+            x,y,w,h=cv2.boundingRect(c)
+            cv2.rectangle(frame, (x,y), (x+w,y+h), (0, 255, 0), 2)
+            if y<prev_y:
+                pag.press('up')
+            elif y>prev_y:
+                pag.press('down')
+            prev_y=y
+
+
+
+    output=face_mesh.process(rgb_frame)
+    landmark_points=output.multi_face_landmarks
+    frame_h,frame_w,_=frame.shape
+    if landmark_points:
+        landmarks=landmark_points[0].landmark
+        for id,landmark in enumerate(landmarks[474:478]):
+            x=int(landmark.x*frame_w)
+            y=int(landmark.y*frame_h)
+            cv2.circle(frame,(x,y),3,(0,255,0))
+            if id==1:
+                screen_x=screen_w / frame_w * x
+                screen_y = screen_h / frame_h * y
+                pag.moveTo(screen_x,screen_y)
+        left=[landmarks[145],landmarks[159]]
+        for landmark in left:
+            x = int(landmark.x * frame_w)
+            y = int(landmark.y * frame_h)
+            cv2.circle(frame, (x, y), 3, (0, 255, 255))
+        if (left[0].y-left[1].y)<0.004:
+            pag.click()
+            pag.sleep(1)
+
+
+    cv2.imshow('Eye Controlled Mouse',frame)
+    cv2.imshow('mask',mask)
+    #cv2.imshow('mask', mask)
+    cv2.waitKey(1)
